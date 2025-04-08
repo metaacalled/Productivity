@@ -5,7 +5,6 @@ import { CalendarController } from './calendar-controller.js';
 import { GoalsController } from './goals-controller.js';
 import { MarksController } from './marks-controller.js';
 import { DashboardController } from './dashboard-controller.js';
-import { SettingsController } from './settings-controller.js';
 
 export class AppController {
     constructor(storageService, uiService) {
@@ -19,7 +18,6 @@ export class AppController {
         this.goalsController = new GoalsController(storageService, uiService);
         this.marksController = new MarksController(storageService, uiService);
         this.dashboardController = new DashboardController(storageService, uiService);
-        this.settingsController = new SettingsController(storageService, uiService);
         
         // Navigation elements
         this.navLinks = document.querySelectorAll('.nav-link');
@@ -43,7 +41,6 @@ export class AppController {
         this.goalsController.init();
         this.marksController.init();
         this.dashboardController.init();
-        this.settingsController.init();
         
         // Set up navigation
         this.setupNavigation();
@@ -108,9 +105,6 @@ export class AppController {
                 break;
             case 'marks':
                 this.marksController.refreshView();
-                break;
-            case 'settings':
-                this.settingsController.refreshView();
                 break;
         }
     }
