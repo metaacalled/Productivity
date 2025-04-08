@@ -499,8 +499,8 @@ export class CalendarController {
         });
         
         // Add event listeners to time slots
-        const timeSlots = document.querySelectorAll('.week-time-slot');
-        timeSlots.forEach(slot => {
+        const timeSlotss = document.querySelectorAll('.week-time-slot');
+        timeSlotss.forEach(slot => {
             if (!slot.hasAttribute('data-date')) return; // Skip time label slots
             
             slot.addEventListener('click', (e) => {
