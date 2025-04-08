@@ -918,7 +918,7 @@ export class MarksController {
                 filteredMarks = marks.filter(mark => mark.term === currentTerm);
                 break;
             case 'past':
-                const currentTerm = this.getCurrentTerm();
+                currentTerm = this.getCurrentTerm();
                 filteredMarks = marks.filter(mark => mark.term !== currentTerm);
                 break;
             case 'grade-a':
