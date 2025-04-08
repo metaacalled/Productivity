@@ -654,8 +654,8 @@ export class CalendarController {
         calendarContainer.innerHTML = dayHTML;
         
         // Add event listeners to time slots
-        const timeSlots = document.querySelectorAll('.day-time-slot');
-        timeSlots.forEach(slot => {
+        const timeSlotsss = document.querySelectorAll('.day-time-slot');
+        timeSlotsss.forEach(slot => {
             if (!slot.hasAttribute('data-date')) return; // Skip time label slots
             
             slot.addEventListener('click', (e) => {
