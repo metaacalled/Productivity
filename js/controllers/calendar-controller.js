@@ -380,5 +380,588 @@ export class CalendarController {
         const tasks = this.getTasksForDateRange(firstDay, lastDay);
         
         // Create time slots (from 7 AM to 9 PM)
-        const timeS
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        const timeSlots = [];
+        for (let hour = 7; hour <= 21; hour++) {
+            timeSlots.push(`${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}`);
+        }
+        
+        // Create week view
+        let weekHTML = `
+            <div class="week-view">
+                <div class="week-header">
+                    <div class="week-time-column"></div>
+        `;
+        
+        // Add day headers
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(firstDay);
+            date.setDate(firstDay.getDate() + i);
+            
+            const isToday = date.getTime() === today.getTime() ? 'today' : '';
+            const dayName = date.toLocaleDateString(undefined, { weekday: 'short' });
+            const dayNumber = date.getDate();
+            
+            weekHTML += `
+                <div class="week-day-column ${isToday}">
+                    <div class="week-day-header" data-date="${date.toISOString().split('T')[0]}">
+                        <div class="week-day-name">${dayName}</div>
+                        <div class="week-day-number">${dayNumber}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        weekHTML += `
+                </div>
+                <div class="week-body">
+                    <div class="week-time-column">
+        `;
+        
+        // Add time slots
+        timeSlots.forEach(timeSlot => {
+            weekHTML += `
+                <div class="week-time-slot">
+                    <div class="week-time">${timeSlot}</div>
+                </div>
+            `;
+        });
+        
+        weekHTML += `
+                    </div>
+        `;
+        
+        // Add day columns
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(firstDay);
+            date.setDate(firstDay.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+            
+            weekHTML += `
+                <div class="week-day-column">
+            `;
+            
+            // Add time slots for each day
+            timeSlots.forEach((timeSlot, index) => {
+                weekHTML += `
+                    <div class="week-time-slot" data-date="${dateStr}" data-hour="${index + 7}">
+                `;
+                
+                // Get tasks for this time slot
+                const slotTasks = tasks.filter(task => {
+                    if (!task.dueDate) return false;
+                    const taskDate = new Date(task.dueDate);
+                    return taskDate.getFullYear() === date.getFullYear() && 
+                           taskDate.getMonth() === date.getMonth() && 
+                           taskDate.getDate() === date.getDate() &&
+                           taskDate.getHours() === (index + 7);
+                });
+                
+                // Add tasks to time slot
+                slotTasks.forEach(task => {
+                    const priorityClass = `priority-${task.priority}`;
+                    const completedClass = task.completed ? 'completed' : '';
+                    
+                    weekHTML += `
+                        <div class="week-event ${priorityClass} ${completedClass}" data-task-id="${task.id}">
+                            <div class="event-title">${task.title}</div>
+                        </div>
+                    `;
+                });
+                
+                weekHTML += `
+                    </div>
+                `;
+            });
+            
+            weekHTML += `
+                </div>
+            `;
+        }
+        
+        weekHTML += `
+                </div>
+            </div>
+        `;
+        
+        // Set week view HTML
+        calendarContainer.innerHTML = weekHTML;
+        
+        // Add event listeners to day headers
+        const dayHeaders = document.querySelectorAll('.week-day-header');
+        dayHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const date = header.getAttribute('data-date');
+                this.showDayView(date);
+            });
+        });
+        
+        // Add event listeners to time slots
+        const timeSlots = document.querySelectorAll('.week-time-slot');
+        timeSlots.forEach(slot => {
+            if (!slot.hasAttribute('data-date')) return; // Skip time label slots
+            
+            slot.addEventListener('click', (e) => {
+                // Don't open modal if clicking on an event
+                if (e.target.closest('.week-event')) {
+                    const taskId = e.target.closest('.week-event').getAttribute('data-task-id');
+                    this.openTaskDetails(taskId);
+                    return;
+                }
+                
+                const date = slot.getAttribute('data-date');
+                const hour = slot.getAttribute('data-hour');
+                this.openEventModal(date, hour);
+            });
+        });
+        
+        // Add event listeners to events
+        const events = document.querySelectorAll('.week-event');
+        events.forEach(event => {
+            event.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = event.getAttribute('data-task-id');
+                this.openTaskDetails(taskId);
+            });
+        });
+    }
+    
+    renderDayView() {
+        const calendarContainer = document.getElementById('calendar-container');
+        if (!calendarContainer) return;
+        
+        // Get current day
+        const currentDate = new Date(this.currentDate);
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const nextDay = new Date(currentDate);
+        nextDay.setDate(currentDate.getDate() + 1);
+        nextDay.setHours(0, 0, 0, 0);
+        
+        // Get tasks for the day
+        const tasks = this.getTasksForDateRange(currentDate, nextDay);
+        
+        // Create time slots (from 7 AM to 9 PM)
+        const timeSlots = [];
+        for (let hour = 7; hour <= 21; hour++) {
+            timeSlots.push(`${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}`);
+        }
+        
+        // Create day view
+        const isToday = currentDate.getTime() === new Date().setHours(0, 0, 0, 0);
+        const todayClass = isToday ? 'today' : '';
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        let dayHTML = `
+            <div class="day-view">
+                <div class="day-header ${todayClass}">
+                    <div class="day-date">
+                        ${currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </div>
+                </div>
+                <div class="day-body">
+                    <div class="day-time-column">
+        `;
+        
+        // Add time slots
+        timeSlots.forEach(timeSlot => {
+            dayHTML += `
+                <div class="day-time-slot">
+                    <div class="day-time">${timeSlot}</div>
+                </div>
+            `;
+        });
+        
+        dayHTML += `
+                    </div>
+                    <div class="day-events-column">
+        `;
+        
+        // Add time slots for events
+        timeSlots.forEach((timeSlot, index) => {
+            dayHTML += `
+                <div class="day-time-slot" data-date="${dateStr}" data-hour="${index + 7}">
+            `;
+            
+            // Get tasks for this time slot
+            const slotTasks = tasks.filter(task => {
+                if (!task.dueDate) return false;
+                const taskDate = new Date(task.dueDate);
+                return taskDate.getHours() === (index + 7);
+            });
+            
+            // Add tasks to time slot
+            slotTasks.forEach(task => {
+                const priorityClass = `priority-${task.priority}`;
+                const completedClass = task.completed ? 'completed' : '';
+                
+                dayHTML += `
+                    <div class="day-event ${priorityClass} ${completedClass}" data-task-id="${task.id}">
+                        <div class="event-time">${new Date(task.dueDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div class="event-title">${task.title}</div>
+                    </div>
+                `;
+            });
+            
+            dayHTML += `
+                </div>
+            `;
+        });
+        
+        dayHTML += `
+                    </div>
+                </div>
+                <div class="day-footer">
+                    <div class="day-all-day-events">
+                        <h5>All Day / No Time</h5>
+                        <div class="day-all-day-events-list">
+        `;
+        
+        // Get tasks without specific time
+        const allDayTasks = tasks.filter(task => {
+            if (!task.dueDate) return true;
+            const taskDate = new Date(task.dueDate);
+            return taskDate.getHours() === 0 && taskDate.getMinutes() === 0;
+        });
+        
+        if (allDayTasks.length === 0) {
+            dayHTML += `
+                <div class="text-muted">No all-day tasks</div>
+            `;
+        } else {
+            allDayTasks.forEach(task => {
+                const priorityClass = `priority-${task.priority}`;
+                const completedClass = task.completed ? 'completed' : '';
+                
+                dayHTML += `
+                    <div class="day-event ${priorityClass} ${completedClass}" data-task-id="${task.id}">
+                        <div class="event-title">${task.title}</div>
+                    </div>
+                `;
+            });
+        }
+        
+        dayHTML += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Set day view HTML
+        calendarContainer.innerHTML = dayHTML;
+        
+        // Add event listeners to time slots
+        const timeSlots = document.querySelectorAll('.day-time-slot');
+        timeSlots.forEach(slot => {
+            if (!slot.hasAttribute('data-date')) return; // Skip time label slots
+            
+            slot.addEventListener('click', (e) => {
+                // Don't open modal if clicking on an event
+                if (e.target.closest('.day-event')) {
+                    const taskId = e.target.closest('.day-event').getAttribute('data-task-id');
+                    this.openTaskDetails(taskId);
+                    return;
+                }
+                
+                const date = slot.getAttribute('data-date');
+                const hour = slot.getAttribute('data-hour');
+                this.openEventModal(date, hour);
+            });
+        });
+        
+        // Add event listeners to events
+        const events = document.querySelectorAll('.day-event');
+        events.forEach(event => {
+            event.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = event.getAttribute('data-task-id');
+                this.openTaskDetails(taskId);
+            });
+        });
+    }
+    
+    navigateCalendar(direction) {
+        switch (direction) {
+            case 'prev':
+                if (this.currentView === 'month') {
+                    this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+                } else if (this.currentView === 'week') {
+                    this.currentDate.setDate(this.currentDate.getDate() - 7);
+                } else if (this.currentView === 'day') {
+                    this.currentDate.setDate(this.currentDate.getDate() - 1);
+                }
+                break;
+            case 'next':
+                if (this.currentView === 'month') {
+                    this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+                } else if (this.currentView === 'week') {
+                    this.currentDate.setDate(this.currentDate.getDate() + 7);
+                } else if (this.currentView === 'day') {
+                    this.currentDate.setDate(this.currentDate.getDate() + 1);
+                }
+                break;
+            case 'today':
+                this.currentDate = new Date();
+                break;
+        }
+        
+        this.renderCalendar();
+    }
+    
+    changeView(view) {
+        this.currentView = view;
+        this.setActiveViewButton();
+        this.renderCalendar();
+    }
+    
+    setActiveViewButton() {
+        const viewBtns = document.querySelectorAll('.view-btn');
+        viewBtns.forEach(btn => {
+            if (btn.getAttribute('data-view') === this.currentView) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
+    showDayView(dateStr) {
+        this.currentDate = new Date(dateStr);
+        this.changeView('day');
+    }
+    
+    openEventModal(dateStr, hour = null) {
+        const eventModal = new bootstrap.Modal(document.getElementById('event-modal'));
+        const eventForm = document.getElementById('event-form');
+        const eventTitle = document.getElementById('event-title');
+        const eventDescription = document.getElementById('event-description');
+        const eventDate = document.getElementById('event-date');
+        const eventTime = document.getElementById('event-time');
+        const eventPriority = document.getElementById('event-priority');
+        const eventCategory = document.getElementById('event-category');
+        const eventId = document.getElementById('event-id');
+        const modalTitle = document.getElementById('event-modal-title');
+        const deleteEventBtn = document.getElementById('delete-event-btn');
+        
+        // Reset form
+        eventForm.reset();
+        eventId.value = '';
+        modalTitle.textContent = 'Add Task';
+        deleteEventBtn.classList.add('d-none');
+        
+        // Set date
+        eventDate.value = dateStr;
+        
+        // Set time if provided
+        if (hour !== null) {
+            const hourStr = hour.toString().padStart(2, '0');
+            eventTime.value = `${hourStr}:00`;
+        }
+        
+        // Update event categories
+        this.updateEventCategories();
+        
+        // Show modal
+        eventModal.show();
+    }
+    
+    openTaskDetails(taskId) {
+        // Get task from storage
+        const tasks = this.storageService.getTasks();
+        const task = tasks.find(t => t.id === taskId);
+        
+        if (!task) return;
+        
+        // Open event modal with task details
+        const eventModal = new bootstrap.Modal(document.getElementById('event-modal'));
+        const eventForm = document.getElementById('event-form');
+        const eventTitle = document.getElementById('event-title');
+        const eventDescription = document.getElementById('event-description');
+        const eventDate = document.getElementById('event-date');
+        const eventTime = document.getElementById('event-time');
+        const eventPriority = document.getElementById('event-priority');
+        const eventCategory = document.getElementById('event-category');
+        const eventId = document.getElementById('event-id');
+        const modalTitle = document.getElementById('event-modal-title');
+        const deleteEventBtn = document.getElementById('delete-event-btn');
+        
+        // Reset form
+        eventForm.reset();
+        
+        // Set task details
+        eventTitle.value = task.title;
+        eventDescription.value = task.description || '';
+        eventPriority.value = task.priority;
+        eventCategory.value = task.category || '';
+        eventId.value = task.id;
+        modalTitle.textContent = 'Edit Task';
+        deleteEventBtn.classList.remove('d-none');
+        
+        // Set date and time
+        if (task.dueDate) {
+            const dueDate = new Date(task.dueDate);
+            
+            // Format date for input
+            const year = dueDate.getFullYear();
+            const month = String(dueDate.getMonth() + 1).padStart(2, '0');
+            const day = String(dueDate.getDate()).padStart(2, '0');
+            eventDate.value = `${year}-${month}-${day}`;
+            
+            // Format time for input
+            const hours = String(dueDate.getHours()).padStart(2, '0');
+            const minutes = String(dueDate.getMinutes()).padStart(2, '0');
+            eventTime.value = `${hours}:${minutes}`;
+        }
+        
+        // Update event categories
+        this.updateEventCategories();
+        
+        // Show modal
+        eventModal.show();
+    }
+    
+    saveEvent() {
+        const eventTitle = document.getElementById('event-title').value;
+        const eventDescription = document.getElementById('event-description').value;
+        const eventDate = document.getElementById('event-date').value;
+        const eventTime = document.getElementById('event-time').value;
+        const eventPriority = document.getElementById('event-priority').value;
+        const eventCategory = document.getElementById('event-category').value;
+        const eventId = document.getElementById('event-id').value;
+        
+        // Validate form
+        if (!eventTitle || !eventDate) {
+            this.uiService.showToast('Please fill in all required fields', 'warning');
+            return;
+        }
+        
+        // Create date object
+        let dueDate = new Date(eventDate);
+        
+        // Add time if provided
+        if (eventTime) {
+            const [hours, minutes] = eventTime.split(':');
+            dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        } else {
+            dueDate.setHours(0, 0, 0, 0);
+        }
+        
+        // Check if adding new task or updating existing
+        if (eventId) {
+            // Update existing task
+            const tasks = this.storageService.getTasks();
+            const taskIndex = tasks.findIndex(t => t.id === eventId);
+            
+            if (taskIndex === -1) return;
+            
+            // Update task
+            const updatedTask = new Task(tasks[taskIndex]);
+            updatedTask.update({
+                title: eventTitle,
+                description: eventDescription,
+                dueDate: dueDate.toISOString(),
+                priority: eventPriority,
+                category: eventCategory
+            });
+            
+            // Save to storage
+            this.storageService.updateTask(updatedTask);
+            
+            // Show success message
+            this.uiService.showToast('Task updated successfully', 'success');
+        } else {
+            // Create new task
+            const newTask = new Task({
+                title: eventTitle,
+                description: eventDescription,
+                dueDate: dueDate.toISOString(),
+                priority: eventPriority,
+                category: eventCategory,
+                status: 'not-started'
+            });
+            
+            // Add to storage
+            this.storageService.addTask(newTask);
+            
+            // Show success message
+            this.uiService.showToast('Task added successfully', 'success');
+        }
+        
+        // Close modal
+        const eventModal = bootstrap.Modal.getInstance(document.getElementById('event-modal'));
+        eventModal.hide();
+        
+        // Refresh calendar
+        this.refreshView();
+    }
+    
+    deleteEvent() {
+        const eventId = document.getElementById('event-id').value;
+        
+        if (!eventId) return;
+        
+        // Confirm deletion
+        this.uiService.confirmDialog('Are you sure you want to delete this task? This action cannot be undone.', () => {
+            // Delete task
+            this.storageService.deleteTask(eventId);
+            
+            // Close modal
+            const eventModal = bootstrap.Modal.getInstance(document.getElementById('event-modal'));
+            eventModal.hide();
+            
+            // Refresh calendar
+            this.refreshView();
+            
+            // Show success message
+            this.uiService.showToast('Task deleted successfully', 'success');
+        });
+    }
+    
+    updateEventCategories() {
+        const tasks = this.storageService.getTasks();
+        const eventCategoriesDatalist = document.getElementById('event-categories');
+        
+        if (eventCategoriesDatalist) {
+            // Get all unique categories
+            const allCategories = new Set();
+            tasks.forEach(task => {
+                if (task.category) {
+                    allCategories.add(task.category);
+                }
+            });
+            
+            // Clear current options
+            eventCategoriesDatalist.innerHTML = '';
+            
+            // Add category options
+            Array.from(allCategories).sort().forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                eventCategoriesDatalist.appendChild(option);
+            });
+        }
+    }
+    
+    getTasksForMonth(year, month) {
+        const tasks = this.storageService.getTasks();
+        
+        return tasks.filter(task => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            return dueDate.getFullYear() === year && dueDate.getMonth() === month;
+        });
+    }
+    
+    getTasksForDateRange(startDate, endDate) {
+        const tasks = this.storageService.getTasks();
+        
+        return tasks.filter(task => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            return dueDate >= startDate && dueDate < endDate;
+        });
+    }
+}

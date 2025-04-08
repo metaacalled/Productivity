@@ -406,5 +406,544 @@ export class DashboardController {
     
     updateGoalsChart(period = 'current') {
         const chartCanvas = document.getElementById('goals-chart');
-        if
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        if (!chartCanvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.goalsChart) {
+            this.charts.goalsChart.destroy();
+        }
+        
+        // Get goals
+        const goals = this.storageService.getGoals();
+        
+        // Filter goals based on period
+        let filteredGoals;
+        
+        if (period === 'current') {
+            // Only non-completed goals
+            filteredGoals = goals.filter(goal => !goal.completed);
+        } else {
+            // All goals
+            filteredGoals = goals;
+        }
+        
+        // Sort goals by progress (descending)
+        filteredGoals.sort((a, b) => b.progress - a.progress);
+        
+        // Limit to top 10 goals
+        const topGoals = filteredGoals.slice(0, 10);
+        
+        // Prepare chart data
+        const labels = topGoals.map(goal => goal.title);
+        const data = topGoals.map(goal => goal.progress);
+        const backgroundColors = topGoals.map(goal => {
+            if (goal.completed) {
+                return 'rgba(40, 167, 69, 0.5)'; // Green for completed
+            } else if (goal.progress >= 75) {
+                return 'rgba(23, 162, 184, 0.5)'; // Blue for high progress
+            } else if (goal.progress >= 50) {
+                return 'rgba(255, 193, 7, 0.5)'; // Yellow for medium progress
+            } else if (goal.progress >= 25) {
+                return 'rgba(255, 153, 0, 0.5)'; // Orange for low progress
+            } else {
+                return 'rgba(220, 53, 69, 0.5)'; // Red for very low progress
+            }
+        });
+        
+        // Create chart
+        this.charts.goalsChart = new Chart(chartCanvas, {
+            type: 'horizontalBar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Progress (%)',
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: backgroundColors.map(color => color.replace('0.5', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+    
+    updateTaskCategoriesChart() {
+        const chartCanvas = document.getElementById('task-categories-chart');
+        if (!chartCanvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.taskCategoriesChart) {
+            this.charts.taskCategoriesChart.destroy();
+        }
+        
+        // Get tasks
+        const tasks = this.storageService.getTasks();
+        
+        // Group tasks by category
+        const tasksByCategory = new Map();
+        
+        tasks.forEach(task => {
+            const category = task.category || 'Uncategorized';
+            
+            if (tasksByCategory.has(category)) {
+                tasksByCategory.set(category, tasksByCategory.get(category) + 1);
+            } else {
+                tasksByCategory.set(category, 1);
+            }
+        });
+        
+        // Sort categories by count (descending)
+        const sortedCategories = Array.from(tasksByCategory.entries())
+            .sort((a, b) => b[1] - a[1]);
+        
+        // Prepare chart data
+        const labels = sortedCategories.map(entry => entry[0]);
+        const data = sortedCategories.map(entry => entry[1]);
+        
+        // Generate colors
+        const backgroundColors = this.generateColors(labels.length, 0.7);
+        const borderColors = this.generateColors(labels.length, 1);
+        
+        // Create chart
+        this.charts.taskCategoriesChart = new Chart(chartCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+    
+    updateGradesChart() {
+        const chartCanvas = document.getElementById('grades-chart');
+        if (!chartCanvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.gradesChart) {
+            this.charts.gradesChart.destroy();
+        }
+        
+        // Get marks
+        const marks = this.storageService.getMarks();
+        
+        // Group marks by grade range
+        const gradeRanges = [
+            { name: 'A (90-100%)', min: 90, max: 100, color: 'rgba(40, 167, 69, 0.7)' },
+            { name: 'B (80-89%)', min: 80, max: 89, color: 'rgba(23, 162, 184, 0.7)' },
+            { name: 'C (70-79%)', min: 70, max: 79, color: 'rgba(255, 193, 7, 0.7)' },
+            { name: 'D (60-69%)', min: 60, max: 69, color: 'rgba(255, 153, 0, 0.7)' },
+            { name: 'F (0-59%)', min: 0, max: 59, color: 'rgba(220, 53, 69, 0.7)' }
+        ];
+        
+        const gradeDistribution = gradeRanges.map(range => ({
+            ...range,
+            count: 0
+        }));
+        
+        // Count marks in each grade range
+        marks.forEach(mark => {
+            const finalGrade = this.calculateFinalGrade(mark);
+            
+            if (finalGrade !== null) {
+                for (const range of gradeDistribution) {
+                    if (finalGrade >= range.min && finalGrade <= range.max) {
+                        range.count++;
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // Prepare chart data
+        const labels = gradeDistribution.map(range => range.name);
+        const data = gradeDistribution.map(range => range.count);
+        const backgroundColors = gradeDistribution.map(range => range.color);
+        const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
+        
+        // Create chart
+        this.charts.gradesChart = new Chart(chartCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Number of Subjects',
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    updateUpcomingTasks() {
+        const container = document.getElementById('upcoming-tasks-container');
+        if (!container) return;
+        
+        // Get tasks
+        const tasks = this.storageService.getTasks();
+        
+        // Filter for upcoming tasks (not completed, with due date in the future)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const upcomingTasks = tasks.filter(task => {
+            if (task.completed || !task.dueDate) return false;
+            
+            const dueDate = new Date(task.dueDate);
+            return dueDate >= today;
+        });
+        
+        // Sort by due date (ascending)
+        upcomingTasks.sort((a, b) => {
+            return new Date(a.dueDate) - new Date(b.dueDate);
+        });
+        
+        // Limit to 5 tasks
+        const topTasks = upcomingTasks.slice(0, 5);
+        
+        // Render tasks
+        if (topTasks.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No upcoming tasks</div>';
+            return;
+        }
+        
+        let html = '<ul class="list-group">';
+        
+        topTasks.forEach(task => {
+            const dueDate = new Date(task.dueDate);
+            const dueDateStr = this.uiService.formatDate(task.dueDate);
+            
+            // Check if task is due today
+            const isToday = dueDate.toDateString() === today.toDateString();
+            const dueDateClass = isToday ? 'text-primary' : '';
+            const dueDateLabel = isToday ? 'Today' : dueDateStr;
+            
+            html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">${task.title}</h6>
+                        <small class="${dueDateClass}">${dueDateLabel}</small>
+                    </div>
+                    <span class="badge bg-${this.getPriorityClass(task.priority)}">${this.capitalizeFirstLetter(task.priority)}</span>
+                </li>
+            `;
+        });
+        
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+    
+    updateInsights() {
+        const container = document.getElementById('insights-container');
+        if (!container) return;
+        
+        // Get data
+        const tasks = this.storageService.getTasks();
+        const notes = this.storageService.getNotes();
+        const goals = this.storageService.getGoals();
+        const marks = this.storageService.getMarks();
+        
+        // Generate insights
+        const insights = [];
+        
+        // Task completion rate
+        if (tasks.length > 0) {
+            const completedTasks = tasks.filter(task => task.completed);
+            const completionRate = Math.round((completedTasks.length / tasks.length) * 100);
+            
+            insights.push({
+                text: `Your task completion rate is ${completionRate}%`,
+                icon: 'bi-check-circle',
+                color: this.getCompletionRateColor(completionRate)
+            });
+        }
+        
+        // Overdue tasks
+        const today = new Date();
+        const overdueTasks = tasks.filter(task => {
+            if (task.completed || !task.dueDate) return false;
+            
+            const dueDate = new Date(task.dueDate);
+            return dueDate < today;
+        });
+        
+        if (overdueTasks.length > 0) {
+            insights.push({
+                text: `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}`,
+                icon: 'bi-exclamation-triangle',
+                color: 'warning'
+            });
+        }
+        
+        // Goals progress
+        if (goals.length > 0) {
+            const activeGoals = goals.filter(goal => !goal.completed);
+            
+            if (activeGoals.length > 0) {
+                const totalProgress = activeGoals.reduce((sum, goal) => sum + goal.progress, 0);
+                const averageProgress = Math.round(totalProgress / activeGoals.length);
+                
+                insights.push({
+                    text: `Your active goals are ${averageProgress}% complete on average`,
+                    icon: 'bi-trophy',
+                    color: this.getProgressColor(averageProgress)
+                });
+            }
+        }
+        
+        // Grade average
+        if (marks.length > 0) {
+            let totalGrade = 0;
+            let gradeCount = 0;
+            
+            marks.forEach(mark => {
+                const finalGrade = this.calculateFinalGrade(mark);
+                if (finalGrade !== null) {
+                    totalGrade += finalGrade;
+                    gradeCount++;
+                }
+            });
+            
+            if (gradeCount > 0) {
+                const average = Math.round((totalGrade / gradeCount) * 10) / 10;
+                const letterGrade = this.getLetterGrade(average);
+                
+                insights.push({
+                    text: `Your average grade is ${average}% (${letterGrade})`,
+                    icon: 'bi-mortarboard',
+                    color: this.getGradeColor(average)
+                });
+            }
+        }
+        
+        // Productivity streak
+        const streak = this.calculateProductivityStreak();
+        if (streak > 0) {
+            insights.push({
+                text: `You have a ${streak}-day productivity streak!`,
+                icon: 'bi-lightning',
+                color: 'primary'
+            });
+        }
+        
+        // Render insights
+        if (insights.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No insights available yet</div>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        
+        insights.forEach(insight => {
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi ${insight.icon} text-${insight.color} fs-4"></i>
+                        </div>
+                        <div>
+                            ${insight.text}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    calculateProductivityStreak() {
+        // Get tasks
+        const tasks = this.storageService.getTasks();
+        
+        // Get completed tasks with completion dates
+        const completedTasks = tasks
+            .filter(task => task.completed && task.completedDate)
+            .map(task => new Date(task.completedDate).toDateString());
+        
+        if (completedTasks.length === 0) {
+            return 0;
+        }
+        
+        // Get unique dates
+        const uniqueDates = new Set(completedTasks);
+        
+        // Check for streak
+        const today = new Date().toDateString();
+        let currentDate = new Date();
+        let streak = 0;
+        
+        // Check if there's activity today
+        if (uniqueDates.has(today)) {
+            streak = 1;
+        } else {
+            return 0; // No activity today, no streak
+        }
+        
+        // Check previous days
+        for (let i = 1; i <= 30; i++) { // Check up to 30 days back
+            currentDate.setDate(currentDate.getDate() - 1);
+            const dateStr = currentDate.toDateString();
+            
+            if (uniqueDates.has(dateStr)) {
+                streak++;
+            } else {
+                break; // Streak broken
+            }
+        }
+        
+        return streak;
+    }
+    
+    calculateFinalGrade(mark) {
+        if (!mark.components || mark.components.length === 0) {
+            return null;
+        }
+        
+        let totalWeightedGrade = 0;
+        let totalWeight = 0;
+        
+        mark.components.forEach(component => {
+            if (component.grade !== null && component.grade !== undefined) {
+                totalWeightedGrade += component.grade * component.weight;
+                totalWeight += component.weight;
+            }
+        });
+        
+        if (totalWeight === 0) {
+            return null;
+        }
+        
+        return Math.round((totalWeightedGrade / totalWeight) * 10) / 10; // Round to 1 decimal place
+    }
+    
+    getLetterGrade(grade) {
+        if (grade === null || grade === undefined) return 'N/A';
+        
+        if (grade >= 97) return 'A+';
+        if (grade >= 93) return 'A';
+        if (grade >= 90) return 'A-';
+        if (grade >= 87) return 'B+';
+        if (grade >= 83) return 'B';
+        if (grade >= 80) return 'B-';
+        if (grade >= 77) return 'C+';
+        if (grade >= 73) return 'C';
+        if (grade >= 70) return 'C-';
+        if (grade >= 67) return 'D+';
+        if (grade >= 63) return 'D';
+        if (grade >= 60) return 'D-';
+        return 'F';
+    }
+    
+    getPriorityClass(priority) {
+        switch (priority) {
+            case 'high':
+                return 'danger';
+            case 'medium':
+                return 'warning';
+            case 'low':
+                return 'info';
+            default:
+                return 'secondary';
+        }
+    }
+    
+    getCompletionRateColor(rate) {
+        if (rate >= 80) return 'success';
+        if (rate >= 60) return 'primary';
+        if (rate >= 40) return 'info';
+        if (rate >= 20) return 'warning';
+        return 'danger';
+    }
+    
+    getProgressColor(progress) {
+        if (progress >= 80) return 'success';
+        if (progress >= 60) return 'primary';
+        if (progress >= 40) return 'info';
+        if (progress >= 20) return 'warning';
+        return 'danger';
+    }
+    
+    getGradeColor(grade) {
+        if (grade >= 90) return 'success';
+        if (grade >= 80) return 'primary';
+        if (grade >= 70) return 'info';
+        if (grade >= 60) return 'warning';
+        return 'danger';
+    }
+    
+    generateColors(count, alpha = 1) {
+        const colors = [];
+        const hueStep = 360 / count;
+        
+        for (let i = 0; i < count; i++) {
+            const hue = i * hueStep;
+            colors.push(`hsla(${hue}, 70%, 60%, ${alpha})`);
+        }
+        
+        return colors;
+    }
+    
+    capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+    
+    loadChartJs() {
+        // Check if Chart.js is already loaded
+        if (typeof Chart !== 'undefined') {
+            this.refreshView();
+            return;
+        }
+        
+        // Create script element
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.async = true;
+        
+        // Add to document
+        document.head.appendChild(script);
+        
+        // Wait for script to load
+        script.onload = () => {
+            console.log('Chart.js loaded');
+            this.refreshView();
+        };
+    }
+}

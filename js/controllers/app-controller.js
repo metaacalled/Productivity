@@ -378,5 +378,102 @@ export class AppController {
             {
                 id: 'note-1',
                 title: 'Welcome to Productivity App',
-                content: 'This is a sample note to help you get started with the app. You can cre
-(Content truncated due to size limit. Use line ranges to read in chunks)
+                content: 'This is a sample note to help you get started with the app. You can create, edit, and organize your notes here.',
+                tags: ['welcome', 'tutorial'],
+                created: new Date().toISOString(),
+                updated: new Date().toISOString(),
+                archived: false
+            },
+            {
+                id: 'note-2',
+                title: 'How to Use Tags',
+                content: 'Tags help you organize your notes. You can add multiple tags to each note and filter notes by tags.',
+                tags: ['tutorial', 'organization'],
+                created: new Date(Date.now() - 86400000).toISOString(),
+                updated: new Date(Date.now() - 86400000).toISOString(),
+                archived: false
+            }
+        ];
+        
+        // Sample tasks
+        const sampleTasks = [
+            {
+                id: 'task-1',
+                title: 'Get started with the app',
+                description: 'Explore the features of the Productivity App',
+                dueDate: new Date(Date.now() + 86400000).toISOString(),
+                priority: 'high',
+                status: 'in-progress',
+                category: 'Personal',
+                completed: false,
+                subtasks: [
+                    { id: 'subtask-1-1', title: 'Explore Notes feature', completed: true },
+                    { id: 'subtask-1-2', title: 'Explore Tasks feature', completed: false },
+                    { id: 'subtask-1-3', title: 'Explore Goals feature', completed: false }
+                ]
+            },
+            {
+                id: 'task-2',
+                title: 'Create your first goal',
+                description: 'Set up a personal or work goal to track your progress',
+                dueDate: new Date(Date.now() + 172800000).toISOString(),
+                priority: 'medium',
+                status: 'not-started',
+                category: 'Personal',
+                completed: false,
+                subtasks: []
+            }
+        ];
+        
+        // Sample goals
+        const sampleGoals = [
+            {
+                id: 'goal-1',
+                title: 'Learn to use Productivity App',
+                description: 'Master all features of the app to boost productivity',
+                targetDate: new Date(Date.now() + 604800000).toISOString(),
+                progress: 25,
+                category: 'Personal Development',
+                milestones: [
+                    { id: 'milestone-1-1', title: 'Complete app tutorial', completed: true },
+                    { id: 'milestone-1-2', title: 'Create 5 notes', completed: false },
+                    { id: 'milestone-1-3', title: 'Complete 3 tasks', completed: false },
+                    { id: 'milestone-1-4', title: 'Set up 2 goals', completed: false }
+                ]
+            }
+        ];
+        
+        // Sample marks
+        const sampleMarks = [
+            {
+                id: 'mark-1',
+                title: 'Productivity Score',
+                category: 'Personal',
+                date: new Date().toISOString(),
+                score: 85,
+                maxScore: 100,
+                weight: 1
+            }
+        ];
+        
+        // Sample relationships
+        const sampleRelationships = [
+            {
+                id: 'rel-1',
+                taskId: 'task-1',
+                noteId: 'note-1',
+                type: 'reference'
+            }
+        ];
+        
+        // Save sample data
+        this.storageService.setNotes(sampleNotes);
+        this.storageService.setTasks(sampleTasks);
+        this.storageService.setGoals(sampleGoals);
+        this.storageService.setMarks(sampleMarks);
+        this.storageService.setRelationships(sampleRelationships);
+        
+        // Mark first run as completed
+        this.storageService.setFirstRun(false);
+    }
+}

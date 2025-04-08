@@ -385,5 +385,190 @@ export class RelationshipController {
             document.body.removeChild(modalContainer);
         });
         
-        //
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        // Show modal
+        modal.show();
+    }
+    
+    // Show modal to link a task to a note
+    showLinkTaskToNoteModal(noteId, onLinkCreated = null) {
+        // Get all tasks
+        const tasks = this.storageService.getTasks();
+        
+        // Get existing relationships for this note
+        const relationships = this.getRelationshipsForNote(noteId);
+        const linkedTaskIds = relationships.map(rel => rel.taskId);
+        
+        // Filter out already linked tasks
+        const availableTasks = tasks.filter(task => !linkedTaskIds.includes(task.id));
+        
+        // Create modal HTML
+        const modalId = 'link-task-modal-' + Date.now();
+        const modalHtml = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Link a Task</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="${modalId}-search" placeholder="Search tasks...">
+                            </div>
+                            <div class="list-group" id="${modalId}-list">
+                                ${availableTasks.length === 0 ? 
+                                    '<div class="text-center text-muted py-3">No available tasks to link</div>' : 
+                                    ''}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to DOM
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHtml;
+        document.body.appendChild(modalContainer);
+        
+        // Initialize modal
+        const modalElement = document.getElementById(modalId);
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Add tasks to list
+        const tasksList = document.getElementById(`${modalId}-list`);
+        const tasksSearch = document.getElementById(`${modalId}-search`);
+        
+        if (availableTasks.length > 0) {
+            this.renderTasksList(availableTasks, tasksList, (taskId) => {
+                this.createRelationship(taskId, noteId);
+                modal.hide();
+                if (onLinkCreated) onLinkCreated();
+            });
+        }
+        
+        // Add search functionality
+        tasksSearch.addEventListener('input', () => {
+            const query = tasksSearch.value.toLowerCase();
+            
+            // Filter tasks by query
+            const filteredTasks = availableTasks.filter(task => {
+                const titleMatch = task.title.toLowerCase().includes(query);
+                const descriptionMatch = task.description && task.description.toLowerCase().includes(query);
+                const categoryMatch = task.category && task.category.toLowerCase().includes(query);
+                
+                return titleMatch || descriptionMatch || categoryMatch;
+            });
+            
+            // Update list
+            this.renderTasksList(filteredTasks, tasksList, (taskId) => {
+                this.createRelationship(taskId, noteId);
+                modal.hide();
+                if (onLinkCreated) onLinkCreated();
+            });
+        });
+        
+        // Add event listener to remove modal from DOM when hidden
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modalContainer);
+        });
+        
+        // Show modal
+        modal.show();
+    }
+    
+    // Render a list of notes
+    renderNotesList(notes, container, onNoteClick) {
+        // Clear container
+        container.innerHTML = '';
+        
+        if (notes.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No notes match your search</div>';
+            return;
+        }
+        
+        // Add notes to list
+        notes.forEach(note => {
+            const noteItem = document.createElement('a');
+            noteItem.href = '#';
+            noteItem.className = 'list-group-item list-group-item-action';
+            
+            const tagsHtml = note.tags.length > 0 
+                ? `<div class="mt-1">${this.uiService.createTagElements(note.tags)}</div>` 
+                : '';
+            
+            noteItem.innerHTML = `
+                <h6 class="mb-1">${note.title}</h6>
+                <p class="mb-1 text-truncate">${note.content}</p>
+                ${tagsHtml}
+                <small class="text-muted">${this.uiService.formatDate(note.updated, 'relative')}</small>
+            `;
+            
+            noteItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                onNoteClick(note.id);
+            });
+            
+            container.appendChild(noteItem);
+        });
+    }
+    
+    // Render a list of tasks
+    renderTasksList(tasks, container, onTaskClick) {
+        // Clear container
+        container.innerHTML = '';
+        
+        if (tasks.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No tasks match your search</div>';
+            return;
+        }
+        
+        // Add tasks to list
+        tasks.forEach(task => {
+            const taskItem = document.createElement('a');
+            taskItem.href = '#';
+            taskItem.className = `list-group-item list-group-item-action ${task.priority}-priority`;
+            
+            // Check if task is overdue
+            let overdueClass = '';
+            let overdueLabel = '';
+            if (task.dueDate && !task.completed) {
+                const dueDate = new Date(task.dueDate);
+                const now = new Date();
+                if (dueDate < now) {
+                    overdueClass = 'text-danger';
+                    overdueLabel = '<span class="badge bg-danger ms-1">Overdue</span>';
+                }
+            }
+            
+            // Format due date
+            const dueDateText = task.dueDate 
+                ? `<div class="small ${overdueClass}">Due: ${this.uiService.formatDate(task.dueDate, 'datetime')}</div>` 
+                : '';
+            
+            taskItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1 ${task.completed ? 'text-decoration-line-through' : ''}">${task.title}</h6>
+                        <div class="d-flex align-items-center">
+                            ${this.uiService.createPriorityBadge(task.priority)}
+                            <span class="badge bg-secondary ms-1">${task.category || 'General'}</span>
+                            ${overdueLabel}
+                        </div>
+                        ${dueDateText}
+                    </div>
+                </div>
+            `;
+            
+            taskItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                onTaskClick(task.id);
+            });
+            
+            container.appendChild(taskItem);
+        });
+    }
+}

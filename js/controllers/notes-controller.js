@@ -375,5 +375,232 @@ export class NotesController {
         if (!noteId) return;
         
         // Get note from storage
-        const notes = 
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        const notes = this.storageService.getNotes();
+        const noteIndex = notes.findIndex(n => n.id === noteId);
+        
+        if (noteIndex === -1) return;
+        
+        // Toggle archive status
+        const updatedNote = new Note(notes[noteIndex]);
+        updatedNote.update({
+            archived: !updatedNote.archived
+        });
+        
+        // Save to storage
+        this.storageService.updateNote(updatedNote);
+        
+        // Refresh notes list
+        this.refreshView();
+        
+        // Re-select the note
+        this.selectNote(noteId);
+        
+        // Show success message
+        const action = updatedNote.archived ? 'archived' : 'unarchived';
+        this.uiService.showToast(`Note ${action} successfully`, 'success');
+    }
+    
+    deleteCurrentNote() {
+        const noteDetailContent = document.getElementById('note-detail-content');
+        const noteId = noteDetailContent.getAttribute('data-note-id');
+        
+        if (!noteId) return;
+        
+        // Confirm deletion
+        this.uiService.confirmDialog('Are you sure you want to delete this note? This action cannot be undone.', () => {
+            // Delete note
+            this.storageService.deleteNote(noteId);
+            
+            // Refresh notes list
+            this.refreshView();
+            
+            // Reset note detail view
+            const noteDetailPlaceholder = document.getElementById('note-detail-placeholder');
+            if (noteDetailPlaceholder) noteDetailPlaceholder.classList.remove('d-none');
+            
+            if (noteDetailContent) {
+                noteDetailContent.classList.add('d-none');
+                noteDetailContent.removeAttribute('data-note-id');
+            }
+            
+            // Show success message
+            this.uiService.showToast('Note deleted successfully', 'success');
+        });
+    }
+    
+    addTagToCurrentNote() {
+        const noteDetailContent = document.getElementById('note-detail-content');
+        const noteId = noteDetailContent.getAttribute('data-note-id');
+        const tagInput = document.getElementById('note-tags');
+        
+        if (!noteId || !tagInput) return;
+        
+        // Get tags from input
+        const tagsText = tagInput.value.trim();
+        if (!tagsText) return;
+        
+        // Split by comma and trim
+        const newTags = tagsText.split(',').map(tag => tag.trim()).filter(tag => tag);
+        
+        // Get note from storage
+        const notes = this.storageService.getNotes();
+        const noteIndex = notes.findIndex(n => n.id === noteId);
+        
+        if (noteIndex === -1) return;
+        
+        // Update note with new tags
+        const updatedNote = new Note(notes[noteIndex]);
+        
+        // Add each tag if it doesn't already exist
+        newTags.forEach(tag => {
+            if (!updatedNote.tags.includes(tag)) {
+                updatedNote.addTag(tag);
+            }
+        });
+        
+        // Save to storage
+        this.storageService.updateNote(updatedNote);
+        
+        // Clear tag input
+        tagInput.value = '';
+        
+        // Refresh notes list
+        this.refreshView();
+        
+        // Re-select the note
+        this.selectNote(noteId);
+    }
+    
+    removeTagFromNote(noteId, tagToRemove) {
+        // Get note from storage
+        const notes = this.storageService.getNotes();
+        const noteIndex = notes.findIndex(n => n.id === noteId);
+        
+        if (noteIndex === -1) return;
+        
+        // Update note by removing tag
+        const updatedNote = new Note(notes[noteIndex]);
+        updatedNote.removeTag(tagToRemove);
+        
+        // Save to storage
+        this.storageService.updateNote(updatedNote);
+        
+        // Refresh notes list
+        this.refreshView();
+        
+        // Re-select the note
+        this.selectNote(noteId);
+    }
+    
+    searchNotes(query) {
+        if (!query) {
+            // If query is empty, show all notes
+            this.loadNotes();
+            return;
+        }
+        
+        // Get all notes
+        const notes = this.storageService.getNotes();
+        
+        // Filter notes by query
+        const filteredNotes = notes.filter(note => {
+            const titleMatch = note.title.toLowerCase().includes(query.toLowerCase());
+            const contentMatch = note.content.toLowerCase().includes(query.toLowerCase());
+            const tagMatch = note.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
+            
+            return titleMatch || contentMatch || tagMatch;
+        });
+        
+        // Update notes list with filtered notes
+        this.displayFilteredNotes(filteredNotes);
+    }
+    
+    filterNotes(filter) {
+        // Get all notes
+        const notes = this.storageService.getNotes();
+        
+        // Filter notes based on selected filter
+        let filteredNotes = [];
+        
+        switch (filter) {
+            case 'all':
+                filteredNotes = notes;
+                break;
+            case 'active':
+                filteredNotes = notes.filter(note => !note.archived);
+                break;
+            case 'archived':
+                filteredNotes = notes.filter(note => note.archived);
+                break;
+            default:
+                filteredNotes = notes;
+        }
+        
+        // Update notes list with filtered notes
+        this.displayFilteredNotes(filteredNotes);
+    }
+    
+    filterNotesByTag(tag) {
+        // Get all notes
+        const notes = this.storageService.getNotes();
+        
+        // Filter notes by tag
+        const filteredNotes = notes.filter(note => note.tags.includes(tag));
+        
+        // Update notes list with filtered notes
+        this.displayFilteredNotes(filteredNotes);
+    }
+    
+    displayFilteredNotes(filteredNotes) {
+        const notesList = document.getElementById('notes-list');
+        const notesEmptyMessage = document.getElementById('notes-empty-message');
+        
+        // Clear current list
+        if (notesList) {
+            notesList.innerHTML = '';
+            
+            if (filteredNotes.length === 0) {
+                if (notesEmptyMessage) {
+                    notesEmptyMessage.classList.remove('d-none');
+                    notesEmptyMessage.textContent = 'No notes match your search';
+                }
+            } else {
+                if (notesEmptyMessage) {
+                    notesEmptyMessage.classList.add('d-none');
+                }
+                
+                // Sort notes by updated date (newest first)
+                const sortedNotes = [...filteredNotes].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+                
+                // Add notes to list
+                sortedNotes.forEach(note => {
+                    const noteItem = document.createElement('a');
+                    noteItem.href = '#';
+                    noteItem.className = `list-group-item list-group-item-action note-item ${note.archived ? 'text-muted' : ''}`;
+                    noteItem.setAttribute('data-note-id', note.id);
+                    
+                    const tagsHtml = note.tags.length > 0 
+                        ? `<div class="mt-1">${this.uiService.createTagElements(note.tags)}</div>` 
+                        : '';
+                    
+                    noteItem.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6 class="mb-1">${note.title}</h6>
+                            ${note.archived ? '<span class="badge bg-secondary">Archived</span>' : ''}
+                        </div>
+                        <p class="mb-1 text-truncate">${note.content}</p>
+                        ${tagsHtml}
+                        <small class="text-muted">${this.uiService.formatDate(note.updated, 'relative')}</small>
+                    `;
+                    
+                    noteItem.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.selectNote(note.id);
+                    });
+                    
+                    notesList.appendChild(noteItem);
+                });
+            }
+        }
+    }
+}
