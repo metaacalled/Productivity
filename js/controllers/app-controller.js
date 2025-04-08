@@ -1,11 +1,11 @@
 // Main Application Controller
-import { NotesController } from './controllers/notes-controller.js';
-import { TasksController } from './controllers/tasks-controller.js';
-import { CalendarController } from './controllers/calendar-controller.js';
-import { GoalsController } from './controllers/goals-controller.js';
-import { MarksController } from './controllers/marks-controller.js';
-import { DashboardController } from './controllers/dashboard-controller.js';
-import { SettingsController } from './controllers/settings-controller.js';
+import { NotesController } from './notes-controller.js';
+import { TasksController } from './tasks-controller.js';
+import { CalendarController } from './calendar-controller.js';
+import { GoalsController } from './goals-controller.js';
+import { MarksController } from './marks-controller.js';
+import { DashboardController } from './dashboard-controller.js';
+import { SettingsController } from './settings-controller.js';
 
 export class AppController {
     constructor(storageService, uiService) {
