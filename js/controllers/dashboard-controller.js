@@ -452,7 +452,7 @@ export class DashboardController {
         
         // Create chart
         this.charts.goalsChart = new Chart(chartCanvas, {
-            type: 'horizontalBar',
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
@@ -467,6 +467,7 @@ export class DashboardController {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
+                    indexAxis: 'y',
                     x: {
                         beginAtZero: true,
                         max: 100
